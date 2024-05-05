@@ -1,63 +1,120 @@
-import matplotlib.pyplot as plt
-import networkx as nx
 import random
+import networkx as nx
+import matplotlib.pyplot as plt
+from heapq import heappop, heappush
+from collections import defaultdict
 
-def randomDistance():
-    number = random.randrange(0,20)
-    return number
+def create_alphabet_graph(connectivity=0.3):
+    # Generate a graph where nodes are letters from A to Z with specified connectivity.
+    # Each edge has attributes for distance, traffic conditions, and urgency.
+    G = nx.Graph()
+    nodes = [chr(i) for i in range(65, 91)]  # ASCII values for A to Z
+    G.add_nodes_from(nodes)
 
-def randomTraffic():
-    traffic = random.randrange(0,5)
-    return traffic
+    for i in range(26):
+        for j in range(i + 1, 26):
+            if random.random() < connectivity:
+                distance = random.randint(1, 100)
+                traffic = random.randint(1, 5)
+                urgency = random.randint(1, 5)
+                G.add_edge(nodes[i], nodes[j], distance=distance, traffic=traffic, urgency=urgency)
+    
+    return G
 
-def randomUrgency():
-    urgency = random.randrange(0,5)
-    return urgency
+def heuristic(node, goal, G):
+    # Heuristic function that estimates the cost from the current node to the goal.
+    # Uses a simple heuristic based on the shortest path length (weighted by distance).
+    try:
+        return nx.shortest_path_length(G, source=node, target=goal, weight='distance')
+    except nx.NetworkXNoPath:
+        return float('inf')
 
-class CityMap:
-    def __init__(self):
-        self.graph = nx.Graph()
+def a_star_search(graph, start, goal):
+    # Perform A* search to find the optimal path from start to goal.
+    # Combines the actual path cost and heuristic estimate to guide the search.
+    frontier = []
+    heappush(frontier, (0, start))
+    came_from = {}
+    cost_so_far = defaultdict(lambda: float('inf'))
+    cost_so_far[start] = 0
 
-    def add_connection(self, node1, node2, distance, traffic, urgency):
-        cost = distance + traffic - urgency
-        self.graph.add_edge(node1, node2, weight=cost)
+    while frontier:
+        _, current = heappop(frontier)
 
-    def find_shortest_path(self, start):
-        return nx.single_source_dijkstra_path_length(self.graph, start)
+        if current == goal:
+            break
 
-    def shortest_path_to(self, start, end):
-        shortest_path = nx.shortest_path(self.graph, start, end)
-        shortest_distance = nx.shortest_path_length(self.graph, start, end)
-        return shortest_path, shortest_distance
+        for neighbor in graph.neighbors(current):
+            new_cost = cost_so_far[current] + graph[current][neighbor]['distance']
+            if new_cost < cost_so_far[neighbor]:
+                cost_so_far[neighbor] = new_cost
+                priority = new_cost + heuristic(neighbor, goal, graph)
+                heappush(frontier, (priority, neighbor))
+                came_from[neighbor] = current
 
+    # Reconstruct the path
+    if current == goal:
+        path = []
+        total_distance = 0
+        while current != start:
+            path.append(current)
+            next_node = came_from[current]
+            edge_data = graph[next_node][current]
+            total_distance += edge_data['distance']
+            current = next_node
+        path.append(start)
+        path.reverse()
+        return path, total_distance
+    else:
+        return None  # No path found
 
-if __name__ == "__main__":
-    city_map = CityMap()
+def plot_graph(G, path=None, total_distance=None):
+    # Plot the graph with nodes and edges. Highlight the path if provided.
+    pos = nx.spring_layout(G)  # positions for all nodes
 
-    print("Connections")
+    # Nodes
+    nx.draw_networkx_nodes(G, pos, node_size=700)
 
-    # Add connections and their associated costs
-    city_map.add_connection("A", "B", randomDistance(), randomTraffic(), randomUrgency())
-    city_map.add_connection("A", "C", randomDistance(), randomTraffic(), randomUrgency())
-    city_map.add_connection("B", "C", randomDistance(), randomTraffic(), randomUrgency())
-    city_map.add_connection("C", "D", randomDistance(), randomTraffic(), randomUrgency())
-    city_map.add_connection("C", "E", randomDistance(), randomTraffic(), randomUrgency())
-    city_map.add_connection("D", "E", randomDistance(), randomTraffic(), randomUrgency())
-    city_map.add_connection("B", "E", randomDistance(), randomTraffic(), randomUrgency())
-    city_map.add_connection("B", "D", randomDistance(), randomTraffic(), randomUrgency())
-    city_map.add_connection("D", "A", 20, 5, 5)
+    # Edges
+    nx.draw_networkx_edges(G, pos, width=1)
+    edge_labels = {(u, v): d['distance'] for u, v, d in G.edges(data=True)}
+    nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels)
 
-    start_node = "A"
-    end_node = "D"
+    if path:
+        path_edges = list(zip(path[:-1], path[1:]))
+        nx.draw_networkx_edges(G, pos, edgelist=path_edges, width=3, edge_color='r')
 
-    shortest_path, shortest_distance = city_map.shortest_path_to(start_node, end_node)
-    print("Shortest path from", start_node, "to", end_node, ":", shortest_path)
-    print("Shortest distance:", shortest_distance)
+    # Labels
+    nx.draw_networkx_labels(G, pos, font_size=20, font_family='sans-serif')
 
-    # Visualize the graph
-    pos = nx.spring_layout(city_map.graph)
-    nx.draw(city_map.graph, pos, with_labels=True, node_color="lightblue", node_size=1500, font_size=12, font_weight="bold")
-    labels = nx.get_edge_attributes(city_map.graph, 'weight')
-    nx.draw_networkx_edge_labels(city_map.graph, pos, edge_labels=labels)
-    plt.title("City Map")
-    plt.show()
+    plt.title(f"Total Distance Traveled: {total_distance}" if total_distance else "Graph without path")
+    plt.axis('off')  # Turn off the axis
+    plt.show()  # Display the graph
+
+def print_graph_details(G):
+    # Print details of each node and its edges.
+    for node in G.nodes():
+        print(f"Node {node} connections:")
+        for neighbor in G.neighbors(node):
+            edge_data = G[node][neighbor]
+            print(f"  -> To Node {neighbor} | Distance: {edge_data['distance']} | Traffic: {edge_data['traffic']} | Urgency: {edge_data['urgency']}")
+
+# Create the graph with 26 alphabet nodes and 30% connectivity
+G = create_alphabet_graph()
+
+# Print node and edge details
+print_graph_details(G)
+
+# Example usage: find path from 'A' to 'Z'
+start_node = input("Enter the start node (A-Z): ").upper()
+goal_node = input("Enter the goal node (A-Z): ").upper()
+result = a_star_search(G, start_node, goal_node)
+
+# Plot the graph with the path highlighted
+if result:
+    path, total_distance = result
+    print("Path from start to goal:", path)
+    print(f"Total distance: {total_distance}")
+    plot_graph(G, path, total_distance)
+else:
+    print("No path found between start and goal.")
