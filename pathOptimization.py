@@ -44,7 +44,7 @@ def plot_graph(graph, best_path):
     for node, edges in graph.items():
         for neighbour, weight in edges.items():
             G.add_edge(node, neighbour, weight=weight)
-    pos = nx.spring_layout(G)  # Automatically position nodes
+    pos = nx.kamada_kawai_layout(G)  # Use Kamada-Kawai layout
     labels = {}
     for node in graph:
         for neighbour, weight in graph[node].items():
@@ -60,6 +60,7 @@ def plot_graph(graph, best_path):
 def aco_algorithm(graph, pheromones):
     best_cost = float('inf')
     best_path = None
+    convergence_counter = 0  # Counter for convergence criteria
     for _ in range(NUM_ITERATIONS):
         ants = []
         for _ in range(NUM_ANTS):
@@ -76,7 +77,12 @@ def aco_algorithm(graph, pheromones):
             if cost < best_cost:
                 best_cost = cost
                 best_path = path
+                convergence_counter = 0  # Reset convergence counter if a better solution is found
         update_pheromones(pheromones, ants, graph)
+        # Check for convergence criteria
+        if convergence_counter > 10:  # Adjust this threshold based on problem characteristics
+            break  # Terminate if convergence criteria met
+        convergence_counter += 1
     return best_path
 
 # Running the algorithm
