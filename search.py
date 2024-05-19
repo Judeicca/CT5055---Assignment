@@ -31,8 +31,8 @@ def heuristic(start, goal, G):
         
         # Adjust the path length based on average traffic and urgency along the path
         path = nx.shortest_path(G, source=start, target=goal, weight='distance')
-        traffic_factor = sum(G[u][v]['traffic'] for u, v in zip(path[:-1], path[1:])) / len(path)
-        urgency_factor = sum(G[u][v]['urgency'] for u, v in zip(path[:-1], path[1:])) / len(path)
+        traffic_factor = sum(G[s][e]['traffic'] for s, e in zip(path[:-1], path[1:])) / len(path)
+        urgency_factor = sum(G[s][e]['urgency'] for s, e in zip(path[:-1], path[1:])) / len(path)
         
         # Simple model to integrate traffic and urgency
         adjusted_length = path_length * (1 + 0.1 * traffic_factor - 0.1 * (6 - urgency_factor))
@@ -40,89 +40,98 @@ def heuristic(start, goal, G):
     except nx.NetworkXNoPath:
         return float('inf') # If no path exists, return infinity
 
-
+# A function to perform an A* search to find the optimal path from start to goal.
 def a_star_search(graph, start, goal):
-    # Perform A* search to find the optimal path from start to goal.
-    # Combines the actual path cost and heuristic estimate to guide the search.
-    frontier = []
-    heappush(frontier, (0, start))
-    came_from = {}
-    cost_so_far = defaultdict(lambda: float('inf'))
-    cost_so_far[start] = 0
+    frontier = [] # Priority queue to store nodes to explore
+    heappush(frontier, (0, start)) # Adds the start node to the frontier
+    came_from = {} # Dictionary to store the path
+    cost_so_far = defaultdict(lambda: float('inf')) # Dictionary to store the cost from start to each node
+    cost_so_far[start] = 0 # Cost from start to start is set to 0
 
+    #  Iterates through the frontier to find the optimal path
     while frontier:
-        _, current = heappop(frontier)
+        _, current = heappop(frontier) # Removes the node with the lowest cost and stores it as current
 
+        # If the goal is reached, break the loop
         if current == goal:
             break
-
+        
+        # Iterates through the neighbors of the current node
         for neighbor in graph.neighbors(current):
-            new_cost = cost_so_far[current] + graph[current][neighbor]['distance']
+            new_cost = cost_so_far[current] + graph[current][neighbor]['distance'] # Calculates the new cost
+            # If the new cost is lower than the previous cost, update the cost and add the neighbor to the frontier
             if new_cost < cost_so_far[neighbor]:
-                cost_so_far[neighbor] = new_cost
-                priority = new_cost + heuristic(neighbor, goal, graph)
-                heappush(frontier, (priority, neighbor))
-                came_from[neighbor] = current
+                cost_so_far[neighbor] = new_cost # Updates the cost
+                priority = new_cost + heuristic(neighbor, goal, graph) # Calculates the priority using the heuristic
+                heappush(frontier, (priority, neighbor)) # Adds the neighbor to the frontier
+                came_from[neighbor] = current # Updates the path
 
-    # Reconstruct the path
+    # If the goal is reached, reconstruct the path and return it
     if current == goal:
-        path = []
-        total_distance = 0
+        path = [] # List to store the path
+        total_distance = 0 # Variable to store the total distance
+        # Reconstructs the path and calculates the total distance while iterating from the goal to the start
         while current != start:
-            path.append(current)
-            next_node = came_from[current]
-            edge_data = graph[next_node][current]
-            total_distance += edge_data['distance']
-            current = next_node
-        path.append(start)
-        path.reverse()
-        return path, total_distance
+            path.append(current) # Adds the current node to the path
+            next_node = came_from[current] # Updates the current node
+            edge_data = graph[next_node][current] # Gets the edge data
+            total_distance += edge_data['distance'] # Updates the total distance
+            current = next_node # Updates the current node
+        path.append(start) # Adds the start node to the path
+        path.reverse() # Reverses the path to start from the start node
+        return path, total_distance # Returns the path and the total distance
     else:
         return None  # No path found
 
+# A function to plot the graph with the path highlighted
 def plot_graph(G, path=None, total_distance=None):
-    # Plot the graph with nodes and edges. Highlight the path if provided.
     pos = nx.spring_layout(G)  # positions for all nodes
 
     # Nodes
     nx.draw_networkx_nodes(G, pos, node_size=700)
 
     # Edges
-    nx.draw_networkx_edges(G, pos, width=1)
-    edge_labels = {(u, v): d['distance'] for u, v, d in G.edges(data=True)}
-    nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels)
+    nx.draw_networkx_edges(G, pos, width=1) # Draw all edges
+    edge_labels = {(s, e): d['distance'] for s, e, d in G.edges(data=True)} # Distance labels
+    nx.draw_networkx_edge_labels(G, pos, edge_labels=edge_labels) # Draw distance labels
 
+    # Highlight the path
     if path:
-        path_edges = list(zip(path[:-1], path[1:]))
-        nx.draw_networkx_edges(G, pos, edgelist=path_edges, width=3, edge_color='r')
+        path_edges = list(zip(path[:-1], path[1:])) # Edges in the optimal path
+        nx.draw_networkx_edges(G, pos, edgelist=path_edges, width=3, edge_color='r') # Draw the path in red
 
     # Labels
-    nx.draw_networkx_labels(G, pos, font_size=20, font_family='sans-serif')
+    nx.draw_networkx_labels(G, pos, font_size=20)
 
+    # Title & Display
     plt.title(f"Total Distance Traveled: {total_distance}" if total_distance else "Graph without path")
     plt.axis('off')  # Turn off the axis
     plt.show()  # Display the graph
 
+# A function to print the details of the graph
 def print_graph_details(G):
-    # Print details of each node and its edges.
+
+    # Print node details and connections
     for node in G.nodes():
         print(f"Node {node} connections:")
         for neighbor in G.neighbors(node):
             edge_data = G[node][neighbor]
             print(f"  -> To Node {neighbor} | Distance: {edge_data['distance']} | Traffic: {edge_data['traffic']} | Urgency: {edge_data['urgency']}")
 
-# Create the graph with 26 alphabet nodes and 30% connectivity
+# Create the graph with 30% connectivity
 G = create_graph(0.3)
 
-# Print node and edge details
+# Print node and edge details for extra, optimal detail
 print_graph_details(G)
 
-# Example usage: find path from 'A' to 'Z'
+# Get the start and goal nodes from the user
 start_node = input("Enter the start node (A-Z): ").upper()
 goal_node = input("Enter the goal node (A-Z): ").upper()
+
+# Perform A* search to find the optimal path
 result = a_star_search(G, start_node, goal_node)
 
-# Plot the graph with the path highlighted
+# If a path is found, print the path and total distance and plot the graph
 if result:
     path, total_distance = result
     print("Path from start to goal:", path)
