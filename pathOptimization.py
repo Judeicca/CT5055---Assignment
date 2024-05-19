@@ -12,18 +12,23 @@ Q = 100      # Pheromone deposit factor
 NUM_ANTS = 10
 NUM_ITERATIONS = 100
 INIT_PHEROMONE = 1.0
+CONVERGENCE_THRESHOLD = 1e-5  # Improvement threshold
+CONVERGENCE_ITERATIONS = 10   # Number of iterations without improvement to consider convergence
 
-alphabet = string.ascii_uppercase
-graph = {letter: {} for letter in alphabet}
-
-# Initialize edges with random weights
-for node in graph:
-    for neighbour in graph:
-        if node != neighbour:
-            graph[node][neighbour] = random.randint(1, 10)  # Random weight between 1 and 10
-
-# Initialize pheromones
-pheromones = {i: {j: INIT_PHEROMONE for j in graph[i]} for i in graph}
+def generate_graph(num_nodes):
+    alphabet = string.ascii_uppercase
+    graph = {letter: {} for letter in alphabet[:num_nodes]}
+    # Initialize edges with random weights and traffic conditions
+    # Initialize edges with random weights and traffic conditions
+    for node in graph:
+        for neighbour in graph:
+            if node != neighbour:
+                distance = random.randint(1, 10)  # Random weight between 1 and 10 for distance
+                traffic = random.randint(1, 5)     # Random number from 1 to 5 for traffic conditions
+                urgency = random.randint(1, 5)     # Random number from 1 to 5 for delivery urgency
+                cost = distance + (traffic - 1) + (urgency - 1)  # Calculate cost based on distance, traffic, and urgency
+                graph[node][neighbour] = cost
+    return graph
 
 def choose_next_node(current_node, allowable_nodes, pheromones, graph):
     pheromone_list = np.array([pheromones[current_node][j] ** ALPHA * (1.0 / graph[current_node][j]) ** BETA for j in allowable_nodes])
@@ -60,6 +65,8 @@ def plot_graph(graph, best_path):
 def aco_algorithm(graph, pheromones):
     best_cost = float('inf')
     best_path = None
+    prev_best_cost = float('inf')
+    no_improvement_count = 0
     convergence_counter = 0  # Counter for convergence criteria
     for _ in range(NUM_ITERATIONS):
         ants = []
@@ -79,11 +86,28 @@ def aco_algorithm(graph, pheromones):
                 best_path = path
                 convergence_counter = 0  # Reset convergence counter if a better solution is found
         update_pheromones(pheromones, ants, graph)
+        
+        # Check for convergence based on improvement threshold
+        if abs(prev_best_cost - best_cost) < CONVERGENCE_THRESHOLD:
+            no_improvement_count += 1
+        else:
+            no_improvement_count = 0
+        if no_improvement_count >= CONVERGENCE_ITERATIONS:
+            break
+        
+        prev_best_cost = best_cost
         # Check for convergence criteria
         if convergence_counter > 10:  # Adjust this threshold based on problem characteristics
             break  # Terminate if convergence criteria met
         convergence_counter += 1
     return best_path
+
+# Generate graph with desired number of nodes
+num_nodes = 10  # Change this to adjust the number of nodes
+graph = generate_graph(num_nodes)
+
+# Initialize pheromones
+pheromones = {i: {j: INIT_PHEROMONE for j in graph[i]} for i in graph}
 
 # Running the algorithm
 best_path_found = aco_algorithm(graph, pheromones)

@@ -1,33 +1,45 @@
+#import the required libraries
 import random
 import networkx as nx
 import matplotlib.pyplot as plt
 from heapq import heappop, heappush
 from collections import defaultdict
 
-def create_alphabet_graph(connectivity=0.3):
-    # Generate a graph where nodes are letters from A to Z with specified connectivity.
-    # Each edge has attributes for distance, traffic conditions, and urgency.
-    G = nx.Graph()
-    nodes = [chr(i) for i in range(65, 91)]  # ASCII values for A to Z
-    G.add_nodes_from(nodes)
+# A function to create a graph with 26 nodes (A-Z) and adjustable connectivity
+def create_graph(connectivity):
+    G = nx.Graph() # Creates an empty graph
+    nodes = [chr(i) for i in range(65, 91)] # Creates nodes using ASCII values for A to Z
+    G.add_nodes_from(nodes) # adds nodes to the graph
 
+    # Adds costs and edges to nodes
     for i in range(26):
         for j in range(i + 1, 26):
             if random.random() < connectivity:
                 distance = random.randint(1, 100)
                 traffic = random.randint(1, 5)
                 urgency = random.randint(1, 5)
+                # Adds edges to the graph and assigns costs to the nodes
                 G.add_edge(nodes[i], nodes[j], distance=distance, traffic=traffic, urgency=urgency)
     
-    return G
+    return G # returns the graph
 
-def heuristic(node, goal, G):
-    # Heuristic function that estimates the cost from the current node to the goal.
-    # Uses a simple heuristic based on the shortest path length (weighted by distance).
+# A function that estimates the cost from the start to the goal nodes.
+def heuristic(start, goal, G):
     try:
-        return nx.shortest_path_length(G, source=node, target=goal, weight='distance')
+        # Calculate the shortest path considering only the distance
+        path_length = nx.shortest_path_length(G, source=start, target=goal, weight='distance')
+        
+        # Adjust the path length based on average traffic and urgency along the path
+        path = nx.shortest_path(G, source=start, target=goal, weight='distance')
+        traffic_factor = sum(G[u][v]['traffic'] for u, v in zip(path[:-1], path[1:])) / len(path)
+        urgency_factor = sum(G[u][v]['urgency'] for u, v in zip(path[:-1], path[1:])) / len(path)
+        
+        # Simple model to integrate traffic and urgency
+        adjusted_length = path_length * (1 + 0.1 * traffic_factor - 0.1 * (6 - urgency_factor))
+        return adjusted_length # returns the adjusted length
     except nx.NetworkXNoPath:
-        return float('inf')
+        return float('inf') # If no path exists, return infinity
+
 
 def a_star_search(graph, start, goal):
     # Perform A* search to find the optimal path from start to goal.
@@ -100,7 +112,7 @@ def print_graph_details(G):
             print(f"  -> To Node {neighbor} | Distance: {edge_data['distance']} | Traffic: {edge_data['traffic']} | Urgency: {edge_data['urgency']}")
 
 # Create the graph with 26 alphabet nodes and 30% connectivity
-G = create_alphabet_graph()
+G = create_graph(0.3)
 
 # Print node and edge details
 print_graph_details(G)
