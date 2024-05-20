@@ -33,7 +33,9 @@ def generate_graph(num_nodes):
 
 # A Function to Choose the Next Node Based on Pheromones and Heuristic Information
 def choose_next_node(current_node, allowable_nodes, pheromones, graph):
-    pheromone_list = np.array([pheromones[current_node][j] ** ALPHA * (1.0 / graph[current_node][j]) ** BETA for j in allowable_nodes]) # Calculate probabilities
+    # Calculate probabilities based on pheromones and heuristic information
+    pheromone_list = np.array([pheromones[current_node][j] 
+                               ** ALPHA * (1.0 / graph[current_node][j]) ** BETA for j in allowable_nodes])
     prob_list = pheromone_list / pheromone_list.sum() # Normalize probabilities
     return np.random.choice(allowable_nodes, 1, p=prob_list)[0] # Choose the next node based on probabilities
 
@@ -71,7 +73,7 @@ def plot_graph(graph, best_path):
     plt.title('Best Path Found') 
     plt.show()
 
-# A Function to Implement the Ant Colony Optimization Algorithm
+# A Function to Implement the Ant Colony Optimisation Algorithm
 def aco_algorithm(graph, pheromones):
     best_cost = float('inf') # Initialize best cost to infinity
     best_path = None # Initialize best path to None
@@ -111,7 +113,7 @@ def aco_algorithm(graph, pheromones):
             break
         
         prev_best_cost = best_cost
-        # Check for convergence criteria
+        # Check for convergence criteria based on number of iterations without improvement
         if convergence_counter > 10:  # If no improvement for 10 iterations, break
             break  # Terminate if convergence criteria met
         convergence_counter += 1
